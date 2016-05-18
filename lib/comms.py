@@ -50,29 +50,30 @@ class StealthConn(object):
             self.shared_hash = SHA256.new(bytes(str(self.shared_secret), "ascii")).hexdigest()[:16]
             print("Shared hash: {}".format(self.shared_hash))
             self.key = self.shared_hash
-            #print(encrypted_data)
-
+			
+        #creating iv
         randSeed = random.seed(self.shared_hash)
-        #print("generating IV")
         self.iv = str(random.getrandbits(128))[:16]
-        #self.iv = self.shared_hash[:16]
         print("IV is: {}".format(self.iv))
-        #self.iv = Random.randint(0, randSeed)
+		
+		#creating cipher
         self.cipher = AES.new(self.shared_hash, AES.MODE_CBC, self.iv)
-        #return self.iv
 
     def send(self, data):
         if self.cipher:
-            #padding to make it the right block size for aes
-            #uses shared hash as key because it is already being passed over the network
+            #creating time stamp to prevent replay
             self.timest = time.asctime()
+			#adding to data
             dataToSend = data + self.timest.encode("ascii")
+			#encryting data
             encrypted_data = self.encrypt(dataToSend, self.key)
 
+			#creating hmac with shared hash as key and encrypted data as msg
             self.mac = HMAC.new(bytes.fromhex(self.shared_hash))
             self.mac.update(encrypted_data)
             sMac = self.mac.hexdigest()
 
+			#creating packet to send
             packet_data = self.iv.encode("ascii") + sMac.encode("ascii") + encrypted_data
             
             if self.verbose:  
@@ -89,9 +90,7 @@ class StealthConn(object):
         pkt_len = struct.pack('H', len(packet_data))
         #send packet
         self.conn.sendall(pkt_len)
-
         self.conn.sendall(packet_data)
-            #self.conn.sendall(self.counter+1)
         return
         
     def recv(self):
@@ -103,18 +102,27 @@ class StealthConn(object):
         encrypted_data = self.conn.recv(pkt_len)
 
         if self.cipher:
+		    #recieved IV first 16 bytes
             riv = encrypted_data[:16]
+			#recieved hmac 
             rmac = encrypted_data[16:48]
+			#encrypted data
             encrypted_data = encrypted_data[48:]
 
+			#decrypting data using recv IV
             data = self.decrypt(encrypted_data, self.key, riv)
             
+			#recv time stamp is last 24 bytes
             recvtimest = data[-24:]
+			#actual data is data minus timestamp
             data = data[:-24]
+			#reformat and read time stamp
             recvtimest = time.mktime(time.strptime(recvtimest.decode("ascii"), "%a %b %d %H:%M:%S %Y"))
             rTime = datetime.datetime.fromtimestamp(recvtimest)            
             
-            excTime = datetime.datetime.now() - datetime.timedelta(seconds=10)
+			#was message sent within the last 2 seconds
+            excTime = datetime.datetime.now() - datetime.timedelta(seconds=2)
+			#if not - return false
             if rTime < excTime:
                 return False      
 
@@ -130,18 +138,19 @@ class StealthConn(object):
     def close(self):
         self.conn.close()
         return
-
+		
+    #encrypt function with padding for AES - length 16
     def encrypt(self, m, key):
         mp = ANSI_X923_pad(m, 16)
         cipher = AES.new(key, AES.MODE_CBC, self.iv)
         return cipher.encrypt(mp)
 
-
+    #decrypt function with unpadding for AES - length 16
     def decrypt(self, m, key, iv):
         cipher = AES.new(key, AES.MODE_CBC, iv)
         return ANSI_X923_unpad(cipher.decrypt(m), 16)
 
-
+#pad and unpad copied from week 02 Lab
 def ANSI_X923_pad(m, pad_length):
     # Work out how many bytes need to be added
     required_padding = pad_length - (len(m) % pad_length)
