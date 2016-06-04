@@ -4,10 +4,11 @@ from Crypto.PublicKey import RSA
 
 def decrypt_valuables(f):
     # TODO: For Part 2, you'll need to decrypt the contents of this file
-
+    #open RSA 4096bit private key
     privateKey = open('keys\private.key',"r").read()
+    #import key into RSA to be used for decryption
     Decypter = RSA.importKey(privateKey)
-
+    #decode file
     decoded_text = Decypter.decrypt(f)
     print(decoded_text)
 
