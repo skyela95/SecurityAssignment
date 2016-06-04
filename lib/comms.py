@@ -63,6 +63,11 @@ class StealthConn(object):
         if self.cipher:
             #creating time stamp to prevent replay
             self.timest = time.asctime()
+
+            if type(data) is str:
+                data = data.encode("ascii") 
+
+
 			#adding to data
             dataToSend = data + self.timest.encode("ascii")
 			#encryting data
